@@ -162,7 +162,7 @@
             </table>
             <div class="file-actions">
                 <input type="file" id="file-input">
-                <button onclick="addFileToTable()">Add File</button>
+                <button onclick="uploadFile()">Add File</button>
                 <button onclick="ingestFiles()">Ingest Files</button>
             </div>
         </div>
@@ -231,12 +231,28 @@
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
-        function addFileToTable() {
+        function uploadFile() {
             const fileInput = document.getElementById('file-input');
             const file = fileInput.files[0];
             if (file) {
-                filesToUpload.push(file);
-                addFileRow(file.name);
+                const formData = new FormData();
+                formData.append('files', file);
+                fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        fetchFiles();
+                    } else {
+                        alert('Error uploading file');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error uploading file:', error);
+                    alert('Error uploading file');
+                });
                 fileInput.value = ''; // Clear the input
             }
         }
@@ -257,7 +273,6 @@
         }
 
         function deleteFile(fileName) {
-            filesToUpload = filesToUpload.filter(file => file.name !== fileName);
             fetch('/delete-file', {
                 method: 'POST',
                 headers: {
@@ -268,8 +283,6 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    const tableBody = document.querySelector('#knowledge-table tbody');
-                    tableBody.innerHTML = '';
                     fetchFiles();
                 } else {
                     alert('Error deleting file');
@@ -278,28 +291,21 @@
         }
 
         function ingestFiles() {
-            const formData = new FormData();
-            filesToUpload.forEach(file => {
-                formData.append('files', file);
-            });
-
-            fetch('/upload', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    filesToUpload = [];
-                    fetchFiles();
-                } else {
-                    alert('Error uploading files');
-                }
-            })
-            .catch(error => {
-                console.error('Error uploading files:', error);
-                alert('Error uploading files');
-            });
+            // Make an AJAX request to the '/ingestfiles' endpoint
+            fetch('/ingestfiles')
+                .then(response => {
+                    if (response.ok) {
+                        // Handle the successful response (if needed)
+                        console.log('Ingestion successful');
+                    } else {
+                        // Handle errors
+                        console.error('Error ingesting files:', response.statusText);
+                    }
+                })
+                .catch(error => {
+                    // Handle network errors
+                    console.error('Network error:', error);
+                });
         }
 
         // Initialize with chat view
