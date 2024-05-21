@@ -30,6 +30,22 @@
             height: 100%;
             padding: 20px;
             flex-shrink: 0; /* Prevent sidebar from shrinking */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .sidebar button {
+            background: none;
+            color: white;
+            border: none;
+            padding: 10px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            margin: 5px 0;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
         }
         .chat-container {
             background: white;
@@ -40,6 +56,11 @@
             width: 40vw;
             height: 100%;
             overflow: hidden; /* Ensure content doesn't overflow */
+            display: none; /* Initially hide all views */
+            position: relative; /* Allow absolute positioning inside */
+        }
+        .chat-container.active {
+            display: block; /* Show active view */
         }
         .messages {
             overflow-y: auto; /* Enable scrolling */
@@ -80,21 +101,100 @@
             border-radius: 0 5px 5px 0;
             cursor: pointer;
         }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .file-actions {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background-color: white;
+            border-top: 1px solid #ddd;
+        }
+        .file-actions input {
+            flex: 1;
+            margin-right: 10px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="sidebar">
+            <button onclick="showView('chat')">Chat</button>
+            <button onclick="showView('knowledge')">Knowledge List</button>
         </div>
-        <div class="chat-container">
+        <div class="chat-container" id="chat">
             <div class="messages" id="messages"></div>
             <form id="chat-form">
                 <input type="text" id="message-input" placeholder="Type your message...">
                 <button type="submit">Send</button>
             </form>
         </div>
+        <div class="chat-container" id="knowledge">
+            <h2>Knowledge List</h2>
+            <table id="knowledge-table">
+                <thead>
+                    <tr>
+                        <th>File Name</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Files will be dynamically added here -->
+                </tbody>
+            </table>
+            <div class="file-actions">
+                <input type="file" id="file-input">
+                <button onclick="uploadFile()">Add File</button>
+                <button onclick="ingestFiles()">Ingest Files</button>
+            </div>
+        </div>
     </div>
     <script>
+        let filesToUpload = [];
+
+        function showView(viewId) {
+            const views = document.querySelectorAll('.chat-container');
+            views.forEach(view => {
+                view.classList.remove('active');
+                if (view.id === viewId) {
+                    view.classList.add('active');
+                }
+            });
+            if (viewId === 'knowledge') {
+                fetchFiles();
+            }
+        }
+
+        function fetchFiles() {
+            fetch('/files')
+                .then(response => response.json())
+                .then(data => {
+                    const tableBody = document.querySelector('#knowledge-table tbody');
+                    tableBody.innerHTML = '';
+                    data.files.forEach(file => {
+                        addFileRow(file);
+                    });
+                });
+        }
+
         document.getElementById('chat-form').addEventListener('submit', function(e) {
             e.preventDefault();
             const messageInput = document.getElementById('message-input');
@@ -130,6 +230,86 @@
             const messagesDiv = document.getElementById('messages');
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
+
+        function uploadFile() {
+            const fileInput = document.getElementById('file-input');
+            const file = fileInput.files[0];
+            if (file) {
+                const formData = new FormData();
+                formData.append('files', file);
+                fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        fetchFiles();
+                    } else {
+                        alert('Error uploading file');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error uploading file:', error);
+                    alert('Error uploading file');
+                });
+                fileInput.value = ''; // Clear the input
+            }
+        }
+
+        function addFileRow(fileName) {
+            const tableBody = document.querySelector('#knowledge-table tbody');
+            const row = document.createElement('tr');
+            const fileNameCell = document.createElement('td');
+            fileNameCell.textContent = fileName;
+            const actionCell = document.createElement('td');
+            const deleteButton = document.createElement('button');
+            deleteButton.textContent = 'Delete';
+            deleteButton.onclick = () => deleteFile(fileName);
+            actionCell.appendChild(deleteButton);
+            row.appendChild(fileNameCell);
+            row.appendChild(actionCell);
+            tableBody.appendChild(row);
+        }
+
+        function deleteFile(fileName) {
+            fetch('/delete-file', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ filename: fileName })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    fetchFiles();
+                } else {
+                    alert('Error deleting file');
+                }
+            });
+        }
+
+        function ingestFiles() {
+            // Make an AJAX request to the '/ingestfiles' endpoint
+            fetch('/ingestfiles')
+                .then(response => {
+                    if (response.ok) {
+                        // Handle the successful response (if needed)
+                        console.log('Ingestion successful');
+                    } else {
+                        // Handle errors
+                        console.error('Error ingesting files:', response.statusText);
+                    }
+                })
+                .catch(error => {
+                    // Handle network errors
+                    console.error('Network error:', error);
+                });
+        }
+
+        // Initialize with chat view
+        showView('chat');
     </script>
 </body>
 </html>
