@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, jsonify
 import os
-from utils.function import create_vectorstore
+from utils.vector_store import create_vectorstore
+from utils.chains import query_llm
 
 app = Flask(__name__)
 app.config.from_object('config.DevelopmentConfig')
@@ -22,9 +23,13 @@ def chat():
     
     global db
     if db:
-        bot_response = f"AI Tutor: db has been ingested"
+        try:
+            bot_response = query_llm(user_message, db)['result']
+        except Exception as e:
+            bot_response = "There are some errors generating your response. Please try again later."
     else:
-        bot_response = f"AI Tutor: db has not been ingested"
+        bot_response = "No file has been ingested. Please upload files to the Knowledge List to ask me questions about them."
+    print(bot_response)
     return jsonify({'response': bot_response})
 
 @app.route('/files', methods=['GET'])
