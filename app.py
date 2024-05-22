@@ -24,9 +24,10 @@ def chat():
     global db
     if db:
         try:
-            bot_response = query_llm(user_message, db)['result']
+            bot_response = query_llm(user_message, db).content
+            print(bot_response)
         except Exception as e:
-            bot_response = "There are some errors generating your response. Please try again later."
+            bot_response = "There are some errors generating your response. Please try again later. "
     else:
         bot_response = "No file has been ingested. Please upload files to the Knowledge List to ask me questions about them."
     print(bot_response)
